@@ -156,7 +156,7 @@ nrow(data_all_i) # 6186
 # j) Find the household with the most number of family members. Report its idmen.
 
 max(data_all_e$nmax) # 14
-which(data_all_e$nmax == 14) # 1524 and 2114. the index positions of the two households tied for first
+which(data_all_e$nmax == 14) # 1524 and 2114. the index positions of the two households tied for most members.
 data_all_e[1524, 1] # 2.21e15. idmen of the first household with 14 members.
 data_all_e[2114, 1] # 2.51e15. idmen of the second household with 14 members.
 
@@ -252,5 +252,4 @@ ind_enter_exit %>%
 }
 ind_byyear <- mutate_all(ind_enter_exit, sum())
 attrition_byyear <- ind_byyear %>% mutate(diff = value - lag(value, default = first(value))) # value would be whatever the name of the sum column becomes
-attrition <- attrition_byyear / ind_byyear[1]
-prop.table(attrition)
+attrition <- attrition_byyear / ind_byyear # puts the annual attrition into proportion
