@@ -33,7 +33,7 @@ beta_hat # 230.9923
 wage_hat = X %*% beta_hat
 eps_hat = Y - wage_hat
 sigma_sqrd_hat <- t(eps_hat) %*% eps_hat / (nrow(X) - ncol(X))
-var_cov_beta_hat <- c(sigma_sqrd_hat) * solve(t(X) %*% X)
+var_cov_beta_hat <- sigma_sqrd_hat %*% solve(t(X) %*% X)
 std_err <- sqrt(diag(var_cov_beta_hat))
 std_err # 14.8774
 
@@ -43,49 +43,78 @@ reg_sum # used lm function to check that values were correct
 
 # ii) Using bootstrap with 49 and 499 replications respectively. Comment on the difference between the two strategies.
 
-reps = 49 # number of bootstraps
-num_ind = nrow(datind2009_complete) # number of individuals
-num_var = length(reg$coefficients)  # number of variables
+num_ind = nrow(datind2009_complete) # number of individuals in the data
+num_var = length(reg$coefficients)  # number of variables in the data
 
-outs = mat.or.vec(reps,nvar)
+reps = 49 # number of bootstraps for our 49 replication bootstrap
+
+outputs = mat.or.vec(reps, num_var)
 set.seed(123)
 
 for (i in 1:reps)
 {
-  samp     = sample(1:nind,nind,rep=TRUE)
-  dat_samp = CPS1985[samp,]
-  reg1     = lm(log(wage) ~ gender*married + education + experience + I(experience^2),data = dat_samp)
-  outs[i,] = reg1$coefficients
+  our_sample = sample(1:num_ind, num_ind, rep = TRUE)
+  sample_data = datind2009_complete[our_sample, ]
+  reg = lm(wage ~ age, data = datind2009_complete)
+  outputs[i,] = reg$coefficients
 }
 
-mean_est = apply(outs,2,mean)
-sd_est   = apply(outs,2,sd)
+our_mean = apply(outputs, 2, mean)
+our_sd = apply(outputs, 2, sd)
 
-est = cbind(summary(reg)$coefficients[,1],
-            summary(reg)$coefficients[,2],
-            mean_est,
-            sd_est)
-colnames(est) = c("CF: est","CF: sd","BT: est","BT: sd")
-est
+our_estimate = cbind(summary(reg)$coefficients[ , 1], summary(reg)$coefficients[ , 2], our_mean, our_sd)
+colnames(our_estimate) = c("coefficient: estimate","coefficient: std dev","bootstrap (49): estimate","bootstrap (49): std dev")
+our_estimate
 
-reps = 499 # number of bootstraps
+reps2 = 499 # number of bootstraps for our 499 replication bootstrap
 
-for (i in 1:reps)
+outputs2 = mat.or.vec(reps2, num_var)
+set.seed(123)
+
+for (i in 1:reps2)
 {
-  samp     = sample(1:nind,nind,rep=TRUE)
-  dat_samp = CPS1985[samp,]
-  reg1     = lm(log(wage) ~ gender*married + education + experience + I(experience^2),data = dat_samp)
-  outs[i,] = reg1$coefficients
+  our_sample2 = sample(1:num_ind, num_ind, rep = TRUE)
+  sample_data2 = datind2009_complete[our_sample2, ]
+  reg2 = lm(wage ~ age, data = datind2009_complete)
+  outputs2[i,] = reg2$coefficients
 }
 
-mean_est = apply(outs,2,mean)
-sd_est   = apply(outs,2,sd)
+our_mean2 = apply(outputs2, 2, mean)
+our_sd2 = apply(outputs2, 2, sd)
 
-est = cbind(summary(reg)$coefficients[,1],
-            summary(reg)$coefficients[,2],
-            mean_est,
-            sd_est)
-colnames(est) = c("CF: est","CF: sd","BT: est","BT: sd")
-est
+our_estimate2 = cbind(summary(reg2)$coefficients[ , 1], summary(reg2)$coefficients[ , 2], our_mean2, our_sd2)
+colnames(our_estimate2) = c("coefficient: estimate","coefficient: std dev","bootstrap (499): estimate","bootstrap (499): std dev")
+our_estimate2
 
+#=========================================================================
+# Exercise 2: Detrend Data
+#=========================================================================
+
+datind = list.files(pattern = "datind")
+for (i in 1:16) {
+  assign(datind[i], read.csv(datind[i]))
+}
+datind_2005_to_2018 = rbind(datind2005.csv, datind2006.csv, datind2007.csv, datind2008.csv, datind2009.csv, datind2010.csv, datind2011.csv, datind2012.csv, datind2013.csv, 
+                            datind2014.csv, datind2015.csv, datind2016.csv, datind2017.csv, datind2018.csv)
+datind_2005_to_2018 <- subset(datind_2005_to_2018, select = c("year", "empstat", "age", "wage"))
+datind_2005_to_2018_complete <- na.omit(datind_2005_to_2018) %>% filter(age > 0, wage != 0)
+
+# a) Create a categorical variable ag, which bins the age variables into the specified groups.
+
+ag <- data.frame(datind_2005_to_2018_complete, bin = cut(datind_2005_to_2018_complete$age, c(18, 25, 30, 35, 40, 45, 50, 55, 60, 100), include.lowest = TRUE))
+
+# b) Plot the wage of each age group across years. Is there a trend?
+
+ag_plot <- ag %>% group_by(year) %>% ggplot(data = ag, mapping = aes(x = ag$age, y = ag$wage, color = group())) + geom_point()
+print(ag_plot)
+
+# c) Consider Wageit = beta*Ageit + gammat*Yeari + eit. After including a time fixed effect, how do the estimated coefficients change?
+
+reg3 = lm(wage ~ age + year, data = ag)
+reg3_sum = summary(reg3)
+reg3_sum
+
+#=========================================================================
+# Exercise 3: Numerical Optimization
+#=========================================================================
 
