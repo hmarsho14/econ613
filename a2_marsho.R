@@ -21,9 +21,9 @@ cor # 0.14349
 
 # b) Calculate the coefficients on this regression. 
 
-X <- cbind(1, datind2009_complete$age)
-Y <- datind2009_complete$wage
-beta_hat <- solve(t(X) %*% X) %*% t(X) %*% Y
+X = cbind(1, datind2009_complete$age)
+Y = datind2009_complete$wage
+beta_hat = solve(t(X) %*% X) %*% t(X) %*% Y
 beta_hat # 230.9923
 
 # c) Calculate the standard errors of beta.
@@ -32,13 +32,13 @@ beta_hat # 230.9923
 
 wage_hat = X %*% beta_hat
 eps_hat = Y - wage_hat
-sigma_sqrd_hat <- t(eps_hat) %*% eps_hat / (nrow(X) - ncol(X))
-var_cov_beta_hat <- sigma_sqrd_hat %*% solve(t(X) %*% X)
-std_err <- sqrt(diag(var_cov_beta_hat))
+sigma_sqrd_hat = t(eps_hat) %*% eps_hat / (nrow(X) - ncol(X))
+var_cov_beta_hat = sigma_sqrd_hat %*% solve(t(X) %*% X)
+std_err = sqrt(diag(var_cov_beta_hat))
 std_err # 14.8774
 
-reg = lm(wage ~ age, data = datind2009_complete)
-reg_sum = summary(reg)
+reg <- lm(wage ~ age, data = datind2009_complete)
+reg_sum <- summary(reg)
 reg_sum # used lm function to check that values were correct
 
 # ii) Using bootstrap with 49 and 499 replications respectively. Comment on the difference between the two strategies.
@@ -48,15 +48,15 @@ num_var = length(reg$coefficients)  # number of variables in the data
 
 reps = 49 # number of bootstraps for our 49 replication bootstrap
 
-outputs = mat.or.vec(reps, num_var)
+outputs <- mat.or.vec(reps, num_var)
 set.seed(123)
 
 for (i in 1:reps)
 {
   our_sample = sample(1:num_ind, num_ind, rep = TRUE)
   sample_data = datind2009_complete[our_sample, ]
-  reg = lm(wage ~ age, data = datind2009_complete)
-  outputs[i,] = reg$coefficients
+  reg <- lm(wage ~ age, data = datind2009_complete)
+  outputs[i,] <- reg$coefficients
 }
 
 our_mean = apply(outputs, 2, mean)
@@ -68,15 +68,15 @@ our_estimate
 
 reps2 = 499 # number of bootstraps for our 499 replication bootstrap
 
-outputs2 = mat.or.vec(reps2, num_var)
+outputs2 <- mat.or.vec(reps2, num_var)
 set.seed(123)
 
 for (i in 1:reps2)
 {
   our_sample2 = sample(1:num_ind, num_ind, rep = TRUE)
   sample_data2 = datind2009_complete[our_sample2, ]
-  reg2 = lm(wage ~ age, data = datind2009_complete)
-  outputs2[i,] = reg2$coefficients
+  reg2 <- lm(wage ~ age, data = datind2009_complete)
+  outputs2[i,] <- reg2$coefficients
 }
 
 our_mean2 = apply(outputs2, 2, mean)
@@ -110,8 +110,8 @@ ggplot(data = ag_plot, mapping = aes(x = year, y = mean_wage, color = bin)) + ge
 
 # c) Consider Wageit = beta*Ageit + gammat*Yeari + eit. After including a time fixed effect, how do the estimated coefficients change?
 
-reg3 = lm(wage ~ age + year, data = ag)
-reg3_sum = summary(reg3)
+reg3 <- lm(wage ~ age + year, data = ag)
+reg3_sum <- summary(reg3)
 reg3_sum
 
 #=========================================================================
@@ -150,16 +150,15 @@ logLik(reg_probit) # tested that the values were correct
 # c) Optimize the model and interpret the coefficients.
 
 ntrys = 100
-output = mat.or.vec(ntrys, 4)
-for (i in 1:ntrys)
-{
-  start_point = runif(4, -5, 5)
-  result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind2007_complete$age, empstat = datind2007_complete$empstat)
-  output[i, ] = c(result$par, result$value)
+outputs3 <- mat.or.vec(ntrys, 3)
+for (i in 1:ntrys) {
+  start_point = runif(2, -5, 5)
+  result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 3000), age = datind2007_complete$age, empstat = datind2007_complete$empstat)
+  outputs3[i, ] = c(result$par, result$value)
 }
 
-output <- as.data.frame(output)
-output[which(output$V4 == min(output$V4)), ]
+outputs3 <- as.data.frame(outputs3)
+outputs3[which(outputs3$V3 == min(outputs3$V3)), ]
 
 # d) Can you estimate the same model including wages as a determinant of labor market participation? Explain.
 
@@ -191,4 +190,88 @@ datind_2005_to_2015_complete$empstat[which(datind_2005_to_2015_complete$empstat 
 datind_2005_to_2015_complete$empstat <- as.numeric(datind_2005_to_2015_complete$empstat)
 datind_2005_to_2015_complete$age <- as.numeric(datind_2005_to_2015_complete$age)
 
-# c) Interpret and compare the estimated coefficients. How significant are they?
+# Probit
+
+flikelihood_probit2 <- function(par, age, year, empstat) {
+  x_beta_probit2 = par[1] + par[2] * age + par[3] * year
+  prob_probit2 = pnorm(x_beta_probit2)
+  prob_probit2[prob_probit2 > 0.999999] = 0.999999
+  prob_probit2[prob_probit2 < 0.000001] = 0.000001
+  likelihood_probit2 = empstat * log(prob_probit2) + (1 - empstat) * log(1 - prob_probit2)
+  return(-sum(likelihood_probit2))
+}
+
+reg_probit2 <- glm(empstat ~ age + year, data = datind_2005_to_2015_complete, family = binomial(link = "probit"))
+test_pars_probit2 = reg_probit2$coefficients
+flikelihood_probit2(test_pars_probit2, datind_2005_to_2015_complete$age, datind_2005_to_2015_complete$year, datind_2005_to_2015_complete$empstat) # 28369.53
+logLik(reg_probit2) # tested that the values were correct
+
+ntrys = 100
+outputs4 <- mat.or.vec(ntrys, 4)
+for (i in 1:ntrys) {
+  start_point = runif(2, -5, 5)
+  result = optim(start_point, fn = flikelihood_probit2, method = "BFGS", control = list(trace = 6, maxit = 3000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
+  outputs4[i, ] = c(result$par, result$value)
+}
+
+outputs4 <- as.data.frame(outputs4)
+outputs4[which(outputs4$V4 == min(outputs4$V4)), ]
+
+# Logit
+
+flikelihood_logit <- function(par, age, year, empstat) {
+  x_beta_logit = par[1] + par[2] * age + par[3] * year
+  prob_logit = exp(x_beta_logit) / (1 + exp(x_beta_logit))
+  prob_logit[prob_logit > 0.999999] = 0.999999
+  prob_logit[prob_logit < 0.000001] = 0.000001
+  likelihood_logit = empstat * log(prob_logit) + (1 - empstat) * log(1 - prob_logit)
+  return(-sum(likelihood_logit))
+}
+
+# ignore this part for now
+ntrys = 100
+outputs5 <- mat.or.vec(ntrys, 4)
+for (i in 1:ntrys)
+{
+  start_point = runif(4, -5, 5)
+  result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind2007_complete$age, year = datind2007_complete$ageempstat = datind2007_complete$empstat)
+  outputs5[i, ] = c(result$par, result$value)
+}
+
+outputs5 <- as.data.frame(outputs5)
+outputs5[which(outputs5$V3 == min(outputs5$V3)), ]
+
+# Linear Probability
+
+flikelihood_linear <- function(par, age, year, empstat) {
+  x_beta_linear = par[1] + par[2] * age + par[3] * year
+  prob_linear = x_beta_linear
+  prob_linear[prob_linear > 0.999999] = 0.999999
+  prob_linear[prob_linear < 0.000001] = 0.000001
+  likelihood_linear = empstat * log(prob_linear) + (1 - empstat) * log(1 - prob_linear)
+  return(-sum(likelihood_linear))
+}
+
+# ignore this part for now
+ntrys = 100
+outputs5 <- mat.or.vec(ntrys, 4)
+for (i in 1:ntrys)
+{
+  start_point = runif(4, -5, 5)
+  result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind2007_complete$age, empstat = datind2007_complete$empstat)
+  outputs5[i, ] = c(result$par, result$value)
+}
+
+outputs5 <- as.data.frame(outputs5)
+outputs5[which(outputs5$V4 == min(outputs5$V4)), ]
+
+# d) Interpret and compare the estimated coefficients. How significant are they?
+
+
+#=========================================================================
+# Exercise 5: Marginal Effects
+#=========================================================================
+
+# a) Compute the marginal effect of the previous probit and logit models
+
+# b) Construct the standard errors of the marginal effects. use bootstrap
