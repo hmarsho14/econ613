@@ -152,7 +152,7 @@ logLik(reg_probit) # tested that the values were correct
 ntrys = 100
 outputs3 <- mat.or.vec(ntrys, 3)
 for (i in 1:ntrys) {
-  start_point = runif(2, -5, 5)
+  start_point = runif(4, -10, 10)
   result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 3000), age = datind2007_complete$age, empstat = datind2007_complete$empstat)
   outputs3[i, ] = c(result$par, result$value)
 }
@@ -207,15 +207,15 @@ flikelihood_probit2(test_pars_probit2, datind_2005_to_2015_complete$age, datind_
 logLik(reg_probit2) # tested that the values were correct
 
 ntrys = 100
-outputs4 <- mat.or.vec(ntrys, 4)
+outputs4 <- mat.or.vec(ntrys, 5)
 for (i in 1:ntrys) {
-  start_point = runif(2, -5, 5)
+  start_point = runif(4, -10, 10)
   result = optim(start_point, fn = flikelihood_probit2, method = "BFGS", control = list(trace = 6, maxit = 3000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
   outputs4[i, ] = c(result$par, result$value)
 }
 
 outputs4 <- as.data.frame(outputs4)
-outputs4[which(outputs4$V4 == min(outputs4$V4)), ]
+outputs4[which(outputs4$V5 == min(outputs4$V5)), ]
 
 # Logit
 
@@ -228,18 +228,17 @@ flikelihood_logit <- function(par, age, year, empstat) {
   return(-sum(likelihood_logit))
 }
 
-# ignore this part for now
 ntrys = 100
-outputs5 <- mat.or.vec(ntrys, 4)
+outputs5 <- mat.or.vec(ntrys, 5)
 for (i in 1:ntrys)
 {
-  start_point = runif(4, -5, 5)
-  result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind2007_complete$age, year = datind2007_complete$ageempstat = datind2007_complete$empstat)
+  start_point = runif(4, -10, 10)
+  result = optim(start_point, fn = flikelihood_logit, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
   outputs5[i, ] = c(result$par, result$value)
 }
 
 outputs5 <- as.data.frame(outputs5)
-outputs5[which(outputs5$V3 == min(outputs5$V3)), ]
+outputs5[which(outputs5$V5 == min(outputs5$V5)), ]
 
 # Linear Probability
 
@@ -252,18 +251,17 @@ flikelihood_linear <- function(par, age, year, empstat) {
   return(-sum(likelihood_linear))
 }
 
-# ignore this part for now
 ntrys = 100
-outputs5 <- mat.or.vec(ntrys, 4)
+outputs5 <- mat.or.vec(ntrys, 5)
 for (i in 1:ntrys)
 {
-  start_point = runif(4, -5, 5)
-  result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind2007_complete$age, empstat = datind2007_complete$empstat)
+  start_point = runif(4, -10, 10)
+  result = optim(start_point, fn = flikelihood_linear, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
   outputs5[i, ] = c(result$par, result$value)
 }
 
 outputs5 <- as.data.frame(outputs5)
-outputs5[which(outputs5$V4 == min(outputs5$V4)), ]
+outputs5[which(outputs5$V5 == min(outputs5$V5)), ]
 
 # d) Interpret and compare the estimated coefficients. How significant are they?
 
