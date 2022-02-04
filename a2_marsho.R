@@ -105,8 +105,8 @@ ag <- data.frame(datind_2005_to_2018_complete, bin = cut(datind_2005_to_2018_com
 
 # b) Plot the wage of each age group across years. Is there a trend?
 
-ag_plot <- ag %>% group_by(year) %>% ggplot(data = ag, mapping = aes(x = ag$age, y = ag$wage, color = group())) + geom_point()
-print(ag_plot)
+ag_plot <- ag %>% group_by(year, bin) %>% summarise(mean_wage = mean(wage, na.rm = TRUE))
+ggplot(data = ag_plot, mapping = aes(x = year, y = mean_wage, color = bin)) + geom_point()
 
 # c) Consider Wageit = beta*Ageit + gammat*Yeari + eit. After including a time fixed effect, how do the estimated coefficients change?
 
@@ -118,3 +118,77 @@ reg3_sum
 # Exercise 3: Numerical Optimization
 #=========================================================================
 
+datind2007 <- read.csv('datind2007.csv')
+datind2007 <- subset(datind2007, select = c("empstat", "age", "wage"))
+datind2007_complete <- na.omit(datind2007) %>% filter(age > 0, wage != 0)
+
+# a) Exclude all individuals who are inactive.
+
+datind2007_complete <- datind2007_complete %>% filter(empstat != "Inactive", empstat != "Retired")
+
+# b) Write a function that returns the likelihood of the probit of being employed. 
+
+datind2007_complete$empstat[which(datind2007_complete$empstat == "Employed")] = 1 
+datind2007_complete$empstat[which(datind2007_complete$empstat == "Unemployed")] = 0 
+datind2007_complete$empstat <- as.numeric(datind2007_complete$empstat)
+datind2007_complete$age <- as.numeric(datind2007_complete$age)
+
+flikelihood <- function(par, age, empstat) {
+  x_beta = par[1] + par[2] * age
+  prob = pnorm(x_beta)
+  prob[prob > 0.999999] = 0.999999
+  prob[prob < 0.000001] = 0.000001
+  likelihood = empstat * log(prob) + (1 - empstat) * log(1 - prob)
+  return(-sum(likelihood))
+}
+
+reg_probit <- glm(empstat ~ age, data = datind2007_complete, family = binomial(link = "probit"))
+test_pars = reg_probit$coefficients
+flikelihood(test_pars, datind2007_complete$age, datind2007_complete$empstat) # 2079.097
+logLik(reg_probit) # tested that the values were correct
+
+# c) Optimize the model and interpret the coefficients.
+
+ntrys = 100
+output = mat.or.vec(ntrys, 4)
+for (i in 1:ntrys)
+{
+  start_point = runif(4, -5, 5)
+  result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind2007_complete$age, empstat = datind2007_complete$empstat)
+  output[i, ] = c(result$par, result$value)
+}
+
+output <- as.data.frame(output)
+output[which(output$V4 == min(output$V4)), ]
+
+# d) Can you estimate the same model including wages as a determinant of labor market participation? Explain.
+
+# No.
+
+#=========================================================================
+# Exercise 4: Discrete Choice
+#=========================================================================
+
+datind = list.files(pattern = "datind")
+for (i in 1:16) {
+  assign(datind[i], read.csv(datind[i]))
+}
+datind_2005_to_2015 = rbind(datind2005.csv, datind2006.csv, datind2007.csv, datind2008.csv, datind2009.csv, datind2010.csv, datind2011.csv, datind2012.csv, datind2013.csv, 
+                            datind2014.csv, datind2015.csv)
+datind_2005_to_2015 <- subset(datind_2005_to_2015, select = c("year", "empstat", "age", "wage"))
+datind_2005_to_2015_complete <- na.omit(datind_2005_to_2015) %>% filter(age > 0, wage != 0)
+
+ag <- data.frame(datind_2005_to_2018_complete, bin = cut(datind_2005_to_2018_complete$age, c(18, 25, 30, 35, 40, 45, 50, 55, 60, 100), include.lowest = TRUE))
+
+# a) Exclude all individuals who are inactive.
+
+datind_2005_to_2015_complete <- datind_2005_to_2015_complete %>% filter(empstat != "Inactive", empstat != "Retired")
+
+# b) Write and optimize the probit, logit, and the linear probability models
+
+datind_2005_to_2015_complete$empstat[which(datind_2005_to_2015_complete$empstat == "Employed")] = 1 
+datind_2005_to_2015_complete$empstat[which(datind_2005_to_2015_complete$empstat == "Unemployed")] = 0 
+datind_2005_to_2015_complete$empstat <- as.numeric(datind_2005_to_2015_complete$empstat)
+datind_2005_to_2015_complete$age <- as.numeric(datind_2005_to_2015_complete$age)
+
+# c) Interpret and compare the estimated coefficients. How significant are they?
