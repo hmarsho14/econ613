@@ -55,7 +55,7 @@ for (i in 1:reps)
 {
   our_sample = sample(1:num_ind, num_ind, rep = TRUE)
   sample_data = datind2009_complete[our_sample, ]
-  reg <- lm(wage ~ age, data = datind2009_complete)
+  reg <- lm(wage ~ age, data = sample_data)
   outputs[i,] <- reg$coefficients
 }
 
@@ -75,7 +75,7 @@ for (i in 1:reps2)
 {
   our_sample2 = sample(1:num_ind, num_ind, rep = TRUE)
   sample_data2 = datind2009_complete[our_sample2, ]
-  reg2 <- lm(wage ~ age, data = datind2009_complete)
+  reg2 <- lm(wage ~ age, data = sample_data2)
   outputs2[i,] <- reg2$coefficients
 }
 
@@ -106,7 +106,7 @@ ag <- data.frame(datind_2005_to_2018_complete, bin = cut(datind_2005_to_2018_com
 # b) Plot the wage of each age group across years. Is there a trend?
 
 ag_plot <- ag %>% group_by(year, bin) %>% summarise(mean_wage = mean(wage, na.rm = TRUE))
-ggplot(data = ag_plot, mapping = aes(x = year, y = mean_wage, color = bin)) + geom_point()
+ggplot(data = ag_plot, mapping = aes(x = year, y = mean_wage, color = bin)) + geom_point() + geom_line()
 
 # c) Consider Wageit = beta*Ageit + gammat*Yeari + eit. After including a time fixed effect, how do the estimated coefficients change?
 
@@ -143,6 +143,7 @@ flikelihood <- function(par, age, empstat) {
 }
 
 reg_probit <- glm(empstat ~ age, data = datind2007_complete, family = binomial(link = "probit"))
+summary(reg_probit)
 test_pars = reg_probit$coefficients
 flikelihood(test_pars, datind2007_complete$age, datind2007_complete$empstat) # 2079.097
 logLik(reg_probit) # tested that the values were correct
@@ -152,13 +153,13 @@ logLik(reg_probit) # tested that the values were correct
 ntrys = 100
 outputs3 <- mat.or.vec(ntrys, 3)
 for (i in 1:ntrys) {
-  start_point = runif(4, -10, 10)
+  start_point = runif(2, -5, 5)
   result = optim(start_point, fn = flikelihood, method = "BFGS", control = list(trace = 6, maxit = 3000), age = datind2007_complete$age, empstat = datind2007_complete$empstat)
   outputs3[i, ] = c(result$par, result$value)
 }
 
 outputs3 <- as.data.frame(outputs3)
-outputs3[which(outputs3$V3 == min(outputs3$V3)), ]
+outputs3[which(outputs3$V3 == min(outputs3$V3)), ] # 0.01318025 is the optimized coefficient for age
 
 # d) Can you estimate the same model including wages as a determinant of labor market participation? Explain.
 
@@ -189,6 +190,7 @@ datind_2005_to_2015_complete$empstat[which(datind_2005_to_2015_complete$empstat 
 datind_2005_to_2015_complete$empstat[which(datind_2005_to_2015_complete$empstat == "Unemployed")] = 0 
 datind_2005_to_2015_complete$empstat <- as.numeric(datind_2005_to_2015_complete$empstat)
 datind_2005_to_2015_complete$age <- as.numeric(datind_2005_to_2015_complete$age)
+datind_2005_to_2015_complete$year <- as.numeric(datind_2005_to_2015_complete$year)
 
 # Probit
 
@@ -215,7 +217,7 @@ for (i in 1:ntrys) {
 }
 
 outputs4 <- as.data.frame(outputs4)
-outputs4[which(outputs4$V5 == min(outputs4$V5)), ]
+outputs4[which.max(outputs4$V5 == min(outputs4$V5)), ] # -6.750914 is the optimized coefficient for age
 
 # Logit
 
@@ -228,11 +230,12 @@ flikelihood_logit <- function(par, age, year, empstat) {
   return(-sum(likelihood_logit))
 }
 
+# fix outputs5 matrix
 ntrys = 100
 outputs5 <- mat.or.vec(ntrys, 5)
 for (i in 1:ntrys)
 {
-  start_point = runif(4, -10, 10)
+  start_point = runif(1, -2, 2)
   result = optim(start_point, fn = flikelihood_logit, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
   outputs5[i, ] = c(result$par, result$value)
 }
@@ -261,7 +264,7 @@ for (i in 1:ntrys)
 }
 
 outputs5 <- as.data.frame(outputs5)
-outputs5[which(outputs5$V5 == min(outputs5$V5)), ]
+outputs5[which.max(outputs5$V5 == min(outputs5$V5)), ] # -9.904477 is the optimized coefficient for age
 
 # d) Interpret and compare the estimated coefficients. How significant are they?
 
@@ -271,5 +274,45 @@ outputs5[which(outputs5$V5 == min(outputs5$V5)), ]
 #=========================================================================
 
 # a) Compute the marginal effect of the previous probit and logit models
+# and
+# b) Construct the standard errors of the marginal effects
 
-# b) Construct the standard errors of the marginal effects. use bootstrap
+set.seed(123)
+
+marginal_effects_probit <- function(formula, data, boot_reps = 1000, digits = 3) {
+  x_probit <- glm(formula, data, family = binomial(link = "probit"))
+  pdf_probit <- mean(dnorm(predict(x_probit, type = "link")))
+  marginal_effects_probit <- pdf_probit * coef(x_probit)
+  outputs6 <- matrix(rep(NA, boot_reps * length(coef(x_probit))), nrow = boot_reps)
+  for(i in 1:boot_reps) {
+    our_sample_probit = sample(1:dim(data)[1], dim(data)[1], rep = TRUE)
+    sample_data_probit = data[our_sample_probit, ]
+    sample_reg_probit <- glm(formula, sample_data_probit, family = binomial(link = "probit"))
+    sample_pdf_probit <- mean(dnorm(predict(sample_reg_probit, type = "link")))
+    outputs6[i, ] <- sample_pdf_probit * coef(sample_reg_probit)
+  }
+  final_answer_probit <- cbind(marginal_effects_probit, apply(outputs6, 2, sd))
+  colnames(final_answer_probit) <- c("Marginal Effect", "Standard Error of Marginal Effect")  
+  return(final_answer_probit)
+}
+
+marginal_effects_probit(formula = empstat ~ age + year, data = datind_2005_to_2015_complete)
+
+marginal_effects_logit <- function(formula, data, boot_reps = 1000, digits = 3) {
+  x_logit <- glm(formula, data, family = binomial(link = "logit"))
+  pdf_logit <- mean(dlogis(predict(x_logit, type = "link")))
+  marginal_effects_logit <- pdf_logit * coef(x_logit)
+  outputs7 <- matrix(rep(NA, boot_reps * length(coef(x_logit))), nrow = boot_reps)
+  for(i in 1:boot_reps) {
+    our_sample_logit = sample(1:dim(data)[1], dim(data)[1], rep = TRUE)
+    sample_data_logit = data[our_sample_logit, ]
+    sample_reg_logit <- glm(formula, sample_data_logit, family = binomial(link = "logit"))
+    sample_pdf_logit <- mean(dlogis(predict(sample_reg_logit, type = "link")))
+    outputs7[i, ] <- sample_pdf_logit * coef(sample_reg_logit)
+  }
+  final_answer_logit <- cbind(marginal_effects_logit, apply(outputs7, 2, sd))
+  colnames(final_answer_logit) <- c("Marginal Effect", "Standard Error of Marginal Effect")  
+  return(final_answer_logit)
+}
+
+marginal_effects_logit(formula = empstat ~ age + year, data = datind_2005_to_2015_complete)
