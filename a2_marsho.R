@@ -32,17 +32,14 @@ beta_hat # 230.9923
 
 wage_hat = X %*% beta_hat
 eps_hat = Y - wage_hat
-sigma_sqrd_hat = t(eps_hat) %*% eps_hat / (nrow(X) - ncol(X))
-var_cov_beta_hat = sigma_sqrd_hat %*% solve(t(X) %*% X)
-std_err = sqrt(diag(var_cov_beta_hat))
+sigma_sqrd_hat <- t(eps_hat) %*% eps_hat / (nrow(X) - ncol(X))
+var_cov_beta_hat <- sigma_sqrd_hat[1] * diag(2) %*% solve(t(X) %*% X)
+std_err <- sqrt(diag(var_cov_beta_hat))
 std_err # 14.8774
-
-reg <- lm(wage ~ age, data = datind2009_complete)
-reg_sum <- summary(reg)
-reg_sum # used lm function to check that values were correct
 
 # ii) Using bootstrap with 49 and 499 replications respectively. Comment on the difference between the two strategies.
 
+reg <- lm(wage ~ age, data = datind2009_complete)
 num_ind = nrow(datind2009_complete) # number of individuals in the data
 num_var = length(reg$coefficients)  # number of variables in the data
 
@@ -121,6 +118,7 @@ reg3_sum
 datind2007 <- read.csv('datind2007.csv')
 datind2007 <- subset(datind2007, select = c("empstat", "age", "wage"))
 datind2007_complete <- na.omit(datind2007) %>% filter(age > 0, wage != 0)
+set.seed(123)
 
 # a) Exclude all individuals who are inactive.
 
@@ -146,7 +144,6 @@ reg_probit <- glm(empstat ~ age, data = datind2007_complete, family = binomial(l
 summary(reg_probit)
 test_pars = reg_probit$coefficients
 flikelihood(test_pars, datind2007_complete$age, datind2007_complete$empstat) # 2079.097
-logLik(reg_probit) # tested that the values were correct
 
 # c) Optimize the model and interpret the coefficients.
 
@@ -163,7 +160,7 @@ outputs3[which(outputs3$V3 == min(outputs3$V3)), ] # 0.01318025 is the optimized
 
 # d) Can you estimate the same model including wages as a determinant of labor market participation? Explain.
 
-# No.
+# Answer on PDF document.
 
 #=========================================================================
 # Exercise 4: Discrete Choice
@@ -177,6 +174,7 @@ datind_2005_to_2015 = rbind(datind2005.csv, datind2006.csv, datind2007.csv, dati
                             datind2014.csv, datind2015.csv)
 datind_2005_to_2015 <- subset(datind_2005_to_2015, select = c("year", "empstat", "age", "wage"))
 datind_2005_to_2015_complete <- na.omit(datind_2005_to_2015) %>% filter(age > 0, wage != 0)
+set.seed(123)
 
 ag <- data.frame(datind_2005_to_2018_complete, bin = cut(datind_2005_to_2018_complete$age, c(18, 25, 30, 35, 40, 45, 50, 55, 60, 100), include.lowest = TRUE))
 
@@ -205,43 +203,45 @@ flikelihood_probit2 <- function(par, age, year, empstat) {
 
 reg_probit2 <- glm(empstat ~ age + year, data = datind_2005_to_2015_complete, family = binomial(link = "probit"))
 test_pars_probit2 = reg_probit2$coefficients
-flikelihood_probit2(test_pars_probit2, datind_2005_to_2015_complete$age, datind_2005_to_2015_complete$year, datind_2005_to_2015_complete$empstat) # 28369.53
-logLik(reg_probit2) # tested that the values were correct
+flikelihood_probit2(test_pars_probit2, datind_2005_to_2015_complete$age, datind_2005_to_2015_complete$year, datind_2005_to_2015_complete$empstat)
 
 ntrys = 100
 outputs4 <- mat.or.vec(ntrys, 5)
 for (i in 1:ntrys) {
   start_point = runif(4, -10, 10)
-  result = optim(start_point, fn = flikelihood_probit2, method = "BFGS", control = list(trace = 6, maxit = 3000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
+  result = optim(start_point, fn = flikelihood_probit2, method = "BFGS", control = list(trace = 6, maxit = 3000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat, hessian = TRUE)
+  # fisher_info_probit = solve(result$hessian)
+  # prop_sigma_probit = sqrt(diag(fisher_info_probit))
   outputs4[i, ] = c(result$par, result$value)
 }
 
 outputs4 <- as.data.frame(outputs4)
-outputs4[which.max(outputs4$V5 == min(outputs4$V5)), ] # -6.750914 is the optimized coefficient for age
+outputs4[which.max(outputs4$V5 == min(outputs4$V5)), ]
 
 # Logit
 
 flikelihood_logit <- function(par, age, year, empstat) {
   x_beta_logit = par[1] + par[2] * age + par[3] * year
-  prob_logit = exp(x_beta_logit) / (1 + exp(x_beta_logit))
+  prob_logit = 1 / (1 + exp(-x_beta_logit))
   prob_logit[prob_logit > 0.999999] = 0.999999
   prob_logit[prob_logit < 0.000001] = 0.000001
   likelihood_logit = empstat * log(prob_logit) + (1 - empstat) * log(1 - prob_logit)
   return(-sum(likelihood_logit))
 }
 
-# fix outputs5 matrix
 ntrys = 100
 outputs5 <- mat.or.vec(ntrys, 5)
 for (i in 1:ntrys)
 {
-  start_point = runif(1, -2, 2)
-  result = optim(start_point, fn = flikelihood_logit, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
+  start_point = runif(4, -10, 10)
+  result = optim(start_point, fn = flikelihood_logit, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat, hessian = TRUE)
+  # fisher_info_logit = solve(result$hessian)
+  # prop_sigma_logit = sqrt(diag(fisher_info_logit))
   outputs5[i, ] = c(result$par, result$value)
 }
 
 outputs5 <- as.data.frame(outputs5)
-outputs5[which(outputs5$V5 == min(outputs5$V5)), ]
+outputs5[which.max(outputs5$V5 == min(outputs5$V5)), ]
 
 # Linear Probability
 
@@ -259,15 +259,18 @@ outputs5 <- mat.or.vec(ntrys, 5)
 for (i in 1:ntrys)
 {
   start_point = runif(4, -10, 10)
-  result = optim(start_point, fn = flikelihood_linear, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat)
+  result = optim(start_point, fn = flikelihood_linear, method = "BFGS", control = list(trace = 6, maxit = 1000), age = datind_2005_to_2015_complete$age, year = datind_2005_to_2015_complete$year, empstat = datind_2005_to_2015_complete$empstat, hessian = TRUE)
+  # fisher_info_linear = solve(result$hessian)
+  # prop_sigma_linear = sqrt(diag(fisher_info_linear))
   outputs5[i, ] = c(result$par, result$value)
 }
 
 outputs5 <- as.data.frame(outputs5)
-outputs5[which.max(outputs5$V5 == min(outputs5$V5)), ] # -9.904477 is the optimized coefficient for age
+outputs5[which.max(outputs5$V5 == min(outputs5$V5)), ]
 
 # d) Interpret and compare the estimated coefficients. How significant are they?
-
+  
+# Answer on PDF document.
 
 #=========================================================================
 # Exercise 5: Marginal Effects
@@ -279,7 +282,7 @@ outputs5[which.max(outputs5$V5 == min(outputs5$V5)), ] # -9.904477 is the optimi
 
 set.seed(123)
 
-marginal_effects_probit <- function(formula, data, boot_reps = 1000, digits = 3) {
+marginal_effects_probit <- function(formula, data, boot_reps = 100, digits = 3) {
   x_probit <- glm(formula, data, family = binomial(link = "probit"))
   pdf_probit <- mean(dnorm(predict(x_probit, type = "link")))
   marginal_effects_probit <- pdf_probit * coef(x_probit)
@@ -298,7 +301,7 @@ marginal_effects_probit <- function(formula, data, boot_reps = 1000, digits = 3)
 
 marginal_effects_probit(formula = empstat ~ age + year, data = datind_2005_to_2015_complete)
 
-marginal_effects_logit <- function(formula, data, boot_reps = 1000, digits = 3) {
+marginal_effects_logit <- function(formula, data, boot_reps = 100, digits = 3) {
   x_logit <- glm(formula, data, family = binomial(link = "logit"))
   pdf_logit <- mean(dlogis(predict(x_logit, type = "link")))
   marginal_effects_logit <- pdf_logit * coef(x_logit)
@@ -316,3 +319,4 @@ marginal_effects_logit <- function(formula, data, boot_reps = 1000, digits = 3) 
 }
 
 marginal_effects_logit(formula = empstat ~ age + year, data = datind_2005_to_2015_complete)
+
