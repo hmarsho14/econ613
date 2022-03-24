@@ -386,7 +386,6 @@ condlogit_margeff <- apply(condlogit_margeff, 2:3, mean)
 condlogit_margeff <- as.data.frame(condlogit_margeff)
 colnames(condlogit_margeff) <-'Marginal Effect'
 
-
 #=========================================================================
 # Exercise 7: Counterfactual Simulations
 #=========================================================================
@@ -395,8 +394,16 @@ colnames(condlogit_margeff) <-'Marginal Effect'
 
 # a) Explain and justify which model you think is appropriate to conduct this exercise.
 
-
+# I think that the second model (the conditional logit model) is more appropriate here. This is because
+# test scores are different for each individual but quality is invariant to the individual.
+# When we exclude the "Others" program choice, we are reducing choices and affecting quality. So,
+# using the conditional logit model that can capture the effect on quality is best.
 
 # b) Calculate choice probabilities under the appropriate model.
 
+condlogit_like_fun(par_m2, our_sample)
+condlogit_prob_matrix(par_m2, our_sample)
+
 # c) Simulate how these choice probabilities change when these choices are excluded.
+
+
