@@ -406,4 +406,10 @@ condlogit_prob_matrix(par_m2, our_sample)
 
 # c) Simulate how these choice probabilities change when these choices are excluded.
 
+excluding_others <- our_sample %>% filter(pgm_rev != "Others")
+params2 <- runif(n)
+res3 <- optim(params2, fn = condlogit_like_fun, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 5000), data = our_sample, hessian = TRUE)
+par_m3 <- res3$par
+condlogit_like_fun(par_m3, our_sample)
+condlogit_prob_matrix(par_m3, our_sample)
 
