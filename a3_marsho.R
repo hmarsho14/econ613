@@ -7,11 +7,6 @@ library(tidyverse)
 library(readr)
 library(ggplot2)
 library(mlogit)
-
-library(snow)
-library(nloptr)
-library(boot)
-library(data.table)
 library(nnet)
 
 setwd("~/Desktop/econ613_wd/Data")
@@ -209,7 +204,7 @@ school_level_simplifed <- school_level %>% select(scode_rev, choice_rev, cutoff_
 top_students <- top_students %>% left_join(school_level_simplifed, by = "choice_rev") %>% filter(quality != 'NA')
 
 set.seed(123)
-x <- sample(1:nrow(top_students), 500)
+x <- sample(1:nrow(top_students), 300)
 our_sample <- top_students[x, ]
 our_sample$choice_rev <- as.factor(our_sample$choice_rev)
 our_sample$choice_rev <- as.numeric(our_sample$choice_rev)
@@ -228,16 +223,17 @@ multilogit_like_fun = function(param, data) {
   out <- mat.or.vec(ni, nj)
   
   pn1 <- param[1:nj_par]
-  pn2 <- param[(nj):(2*nj_par)]
+  pn2 <- param[(nj):(2 * nj_par)]
   out[, 1] <- rep(0, ni)
   
-  for (j in 1:nj) {
-    out[, j] <- pn1[j] + score * pn2[j]
+  for (j in 2:nj) {
+    out[, j] <- pn1[j - 1] + score * pn2[j - 1]
   }
+  
   prob <- exp(out)       
   prob <- sweep(prob, MARGIN = 1, FUN = "/", STATS = rowSums(prob))
-  
   prob_c <- NULL
+  
   for (i in 1:ni) {
     prob_c[i] = prob[i, choice[i]]
   }
@@ -251,22 +247,21 @@ multilogit_like_fun = function(param, data) {
 
 # Use computer to find true model
 
-computers_multinom <- multinom(choice_rev ~ score, data = our_sample, maxit = 5000)
+computers_multinom <- multinom(choice_rev ~ score, data = our_sample, maxit = 10000)
 computers_summary <- summary(computers_multinom)
 computers_summary$coefficients
 
 # Optimize manually
 
 set.seed(123)
-options(scipen = 200)
-start <- as.vector(computers_summary$coefficients) + runif((n - 1) * 2, -0.02, 0.02)
-res1 <- optim(start, fn = multilogit_like_fun, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 5000), data = our_sample, hessian = TRUE)
+start <- as.vector(computers_summary$coefficients) + runif(76, -0.02, 0.02)
+res1 <- optim(start, fn = multilogit_like_fun, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 10000), data = our_sample, hessian = TRUE)
 par_m <- res1$par
 
 # Marginal Effect
 # People-Choice Matrix
 
-multilogit_prob_matrix = function(param,data) {
+multilogit_prob_matrix = function(param, data) {
   score <- data$score
   choice <- data$choice_rev
   ni <- nrow(data)
@@ -277,21 +272,23 @@ multilogit_prob_matrix = function(param,data) {
   pn1 <- param[1:nj_par]
   pn2 <- param[(nj):(2 * nj_par)]
   out[, 1] <- rep(0, ni)
-  for (j in 1:nj) {
-    out[, j] <- pn1[j] + score * pn2[j]
+  
+  for (j in 2:nj) {
+    out[, j] <- pn1[j - 1] + score * pn2[j - 1]
   }
+  
   prob_sums <- apply(exp(out), 1, sum)      
-  prob <- exp(out)/prob_sum
+  prob <- exp(out)/prob_sums
   return(prob)
 }
 
 probij_matrix <- multilogit_prob_matrix(par_m, our_sample)
-mb <- c(0, par_m[n:(2 * (n-1))])
+mb <- c(0, par_m[n:76])
 
-multilogit_margeff <- matrix(0, nrow = 500, ncol = n)
-for (i in 1:500) {
+multilogit_margeff <- matrix(0, nrow = 300, ncol = n)
+for (i in 1:300) {
   beta_bar <- sum(probij_matrix[i, ] * mb)
-  multilogit_margeff[i, ] = probij_matrix[i, ] * (mb - beta_bar)
+  multilogit_margeff[i, ] <- probij_matrix[i, ] * (mb - beta_bar)
 }
 multilogit_margeff <- apply(multilogit_margeff, 2, mean)
 multilogit_margeff <- as.data.frame(multilogit_margeff)
@@ -324,7 +321,7 @@ condlogit_like_fun = function(param, data) {
   for (j in 1:nj) {
     out[, j] <- pn1[j] + param[nj] * unique_choice_quality[j] 
   }
-  prob_sum <- exp(out)
+  prob <- exp(out)
   prob <- sweep(prob, MARGIN = 1, FUN = "/", STATS = rowSums(prob))
   prob_c <- NULL
   for (i in 1:ni) {
