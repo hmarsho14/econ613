@@ -42,7 +42,7 @@ for (each_col in 1:num_programs){
 }
 colnames(num_choices) <- unique_programs
 rownames(num_choices) <- unique_schools
-unique_num_choices <- length(unique(num_choices)) #29634
+unique_num_choices <- length(unique(num_choices)) #29634 choices
 
 # c) Number of students applying to at least one senior high school in the same district as their home.
 
@@ -222,7 +222,7 @@ multilogit_like_fun = function(param, data) {
   nj_par <- nj - 1
   out <- mat.or.vec(ni, nj)
   
-  pn1 <- param[1:nj_par]
+  pn1 <- c(0, param[1:nj_par])
   pn2 <- param[(nj):(2 * nj_par)]
   out[, 1] <- rep(0, ni)
   
@@ -269,7 +269,7 @@ multilogit_prob_matrix = function(param, data) {
   nj_par <- nj - 1
   out <- mat.or.vec(ni, nj)
   
-  pn1 <- param[1:nj_par]
+  pn1 <- c(0, param[1:nj_par])
   pn2 <- param[(nj):(2 * nj_par)]
   out[, 1] <- rep(0, ni)
   
@@ -277,8 +277,8 @@ multilogit_prob_matrix = function(param, data) {
     out[, j] <- pn1[j - 1] + score * pn2[j - 1]
   }
   
-  prob_sums <- apply(exp(out), 1, sum)      
-  prob <- exp(out)/prob_sums
+  prob <- exp(out)
+  prob <- sweep(prob, MARGIN = 1, FUN = "/", STATS = rowSums(prob))
   return(prob)
 }
 
@@ -315,7 +315,7 @@ condlogit_like_fun = function(param, data) {
   unique_data <- distinct(data, choice_rev, .keep_all = TRUE)
   unique_choice_quality <- unique_data[order(unique_data$choice_rev), ]$quality_rev
   
-  pn1 <- param[1:nj_par]
+  pn1 <- c(0, param[1:nj_par])
   out[, 1] <- rep(0, ni)
   
   for (j in 1:nj) {
@@ -324,6 +324,7 @@ condlogit_like_fun = function(param, data) {
   prob <- exp(out)
   prob <- sweep(prob, MARGIN = 1, FUN = "/", STATS = rowSums(prob))
   prob_c <- NULL
+  
   for (i in 1:ni) {
     prob_c[i] <- prob[i, choice[i]]
   }
@@ -338,7 +339,6 @@ condlogit_like_fun = function(param, data) {
 # Optimize manually
 
 set.seed(123)
-options(scipen = 200)
 params <- runif(n)
 res2 <- optim(params, fn = condlogit_like_fun, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 5000), data = our_sample, hessian = TRUE)
 par_m2 <- res2$par
@@ -357,14 +357,14 @@ condlogit_prob_matrix = function(param, data) {
   unique_data <- distinct(data, choice_rev, .keep_all = TRUE)
   unique_choice_quality <- unique_data[order(unique_data$choice_rev), ]$quality_rev
   
-  pn1 <- param[1:nj_par]
+  pn1 <- c(0, param[1:nj_par])
   out[, 1] <- rep(0, ni)
   
   for (j in 1:nj) {
     out[, j] <- pn1[j] + param[nj] * unique_choice_quality[j]
   }
-  prob_sums <- apply(exp(out), 1, sum)      
-  prob <- exp(out)/prob_sum
+  prob <- exp(out)
+  prob <- sweep(prob, MARGIN = 1, FUN = "/", STATS = rowSums(prob))
   return(prob)
 }
 
@@ -407,6 +407,5 @@ excluding_others <- our_sample %>% filter(pgm_rev != "Others")
 params2 <- runif(n)
 res3 <- optim(params2, fn = condlogit_like_fun, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 5000), data = our_sample, hessian = TRUE)
 par_m3 <- res3$par
-condlogit_like_fun(par_m3, our_sample)
-condlogit_prob_matrix(par_m3, our_sample)
-
+condlogit_like_fun2(par_m3, our_sample)
+condlogit_prob_matrix2(par_m3, our_sample)
