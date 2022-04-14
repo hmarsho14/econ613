@@ -6,6 +6,7 @@
 library(tidyverse)
 library(readr)
 library(ggplot2)
+library(VGAM)
 
 setwd("~/Desktop/econ613_wd/A4/Data")
 dat <- read.csv('dat_A4.csv')
@@ -18,11 +19,9 @@ dat_panel <- read.csv('dat_A4_panel.csv')
 # a) Create additional variable for the age of the agent "age", total work experience measured in years
 # "work_exp".
 
-# Let's calculate age first. I interpret that this question could mean age at time of initial 
-# survey (in 1997) or age at time of final survey/present day (in 2019). I'll calculate both to be safe.
+# Let's calculate age first. I interpret that this question means age at time of final survey/present 
+# day (in 2019).
 
-yearofsurvey = 1997
-dat <- dat %>% mutate(age_initial = yearofsurvey - KEY_BDATE_Y_1997)
 yearofsurvey = 2019
 dat <- dat %>% mutate(age_final = yearofsurvey - KEY_BDATE_Y_1997)
 
@@ -160,7 +159,7 @@ flikelihood <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7, income_exist
   return(-sum(like))
 }
 
-predictor <- function(par, intercept, x1, x2, x3, x4, income_exists) {
+predictor <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7) {
   yhat <- par[1] * intercept + par[2] * x1 + par[3] * x2 + par[4] * x3 + par[5] * x4 +
     par[6] * x5 + par[7] * x6 + par[7] * x7 
   return(yhat)
@@ -176,21 +175,22 @@ x6 <- dat$CV_BIO_CHILD_HH_U18_2019
 x7 <- dat$CV_MARSTAT_COLLAPSED_2019
 income_exists = dat$income_exists
 
-# Should the following lines include intercept in their formula?
-
 start <- runif(5, -0.5, 0.5)
-result  <- optim(start, fn = flikelihood, method="BFGS", control = list(trace = 6, REPORT = 1, maxit = 1000),
-                 x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, x7 = x7, income_exists = dat$income_exists, hessian = TRUE)
+result <- optim(start, fn = flikelihood, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 1000),
+                 intercept = dat$intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, x7 = x7, income_exists = dat$income_exists, hessian = TRUE)
 result$par
 
 # Use Probit package to check result
 
-reg1 <- glm(income_exists ~ x1 + x2 + x3 + x3 + x4 + x5 + x6 + x7, family = binomial(link = "probit"))
-summary(reg1)
-reg1$coefficients
-predictor <- predictor(result$par, x1, x2, x3, x4, x5, x6, x7, income_exists)
-invM_ratio <- dnorm(predictor) / pnorm(predictor)
-Heckman_reg <- lm(dat$YINC_1700_2019 ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + invM_ratio)
+reg2 <- glm(income_exists ~ x1 + x2 + x3 + x3 + x4 + x5 + x6 + x7, family = binomial(link = "probit"), data = dat)
+summary(reg2)
+reg2$coefficients
+
+predictor <- predictor(result$par, intercept, x1, x2, x3, x4, x5, x6, x7)
+invM_ratio <- dnorm(predictor) / pnorm(predictor) # Inverse Mills Ratio
+reg3 <- lm(dat$YINC_1700_2019 ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + invM_ratio) # Heckman regression
+summary(reg3)
+reg3$coefficients
 
 #=========================================================================
 # Exercise 3: Censoring
@@ -209,10 +209,28 @@ hist(dat_income_filtered$YINC_1700_2019, main = "Income")
 
 # b) Propose a model to deal with the censoring problem.
 
+# Tobit model. Return to this later.
+
 # c) Estimate the appropriate model with the censored data.
+
+# We have a mass point at $100,000. The density will thus be 0 if income is greater
+# than $100,000. The density will be the regular OLS density if income is less than
+# $100,000. If income is equal to our mass point, the density will be 
+# [1 - phi((xi * beta) / sigma)].
+
+dat_ex3 <- dat %>% filter(dat$YINC_1700_2019 != 0 & dat$YINC_1700_2019 != 'NA')
+dat_ex3$censored <- 1
+dat_ex3$censored[which(dat_ex3$YINC_1700_2019 < 100000)] <- 0
+censored <- dat_ex3$censored
+
+# Use Tobit package to check result
+
+reg4 <- vglm()
 
 # d) Interpret the results above and compare to those when not correcting for 
 # the censored data.
+
+# Return to this later.
 
 #=========================================================================
 # Exercise 4: Panel Data
