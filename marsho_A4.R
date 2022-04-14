@@ -64,8 +64,8 @@ dat <- dat %>% mutate(average_grade_parent = rowSums(dat[, 8:11], na.rm = TRUE) 
 # program from which they received their highest degree (for example, if they completed PhD, I am 
 # assuming they went straight from a four-year bachelor's to PhD program, with no master's in-between).
 
-dat <- dat %>% mutate(highest_degree_received = case_when(dat$YSCH.3113_2019 == 1 ~ "<12",
-                                                          dat$YSCH.3113_2019 == 2 ~ "~12",
+dat <- dat %>% mutate(highest_degree_received = case_when(dat$YSCH.3113_2019 == 1 ~ "12",
+                                                          dat$YSCH.3113_2019 == 2 ~ "12",
                                                           dat$YSCH.3113_2019 == 3 ~ "12",
                                                           dat$YSCH.3113_2019 == 4 ~ "14",
                                                           dat$YSCH.3113_2019 == 5 ~ "16",
@@ -151,7 +151,7 @@ dat$income_exists[which(dat$YINC_1700_2019 > 0)] <- 1
 
 flikelihood <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7, income_exists) {
   yhat <- par[1] * intercept + par[2] * x1 + par[3] * x2 + par[4] * x3 + par[5] * x4 +
-    par[6] * x5 + par[7] * x6 + par[7] * x7
+    par[6] * x5 + par[7] * x6 + par[8] * x7
   prob <- pnorm(yhat)
   prob[prob > 0.999999] <- 0.999999
   prob[prob < 0.000001] <- 0.000001
@@ -161,7 +161,7 @@ flikelihood <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7, income_exist
 
 predictor <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7) {
   yhat <- par[1] * intercept + par[2] * x1 + par[3] * x2 + par[4] * x3 + par[5] * x4 +
-    par[6] * x5 + par[7] * x6 + par[7] * x7 
+    par[6] * x5 + par[7] * x6 + par[8] * x7 
   return(yhat)
 }
 
@@ -169,15 +169,15 @@ intercept <- dat$intercept
 x1 <- dat$age_final
 x2 <- dat$work_exp
 x3 <- dat$average_grade_parent
-x4 <- dat$highest_degree_received
+x4 <- as.numeric(dat$highest_degree_received)
 x5 <- dat$KEY_SEX_1997
 x6 <- dat$CV_BIO_CHILD_HH_U18_2019
 x7 <- dat$CV_MARSTAT_COLLAPSED_2019
 income_exists = dat$income_exists
 
-start <- runif(5, -0.5, 0.5)
+start <- runif(6, -1, 1)
 result <- optim(start, fn = flikelihood, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 1000),
-                 intercept = dat$intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, x7 = x7, income_exists = dat$income_exists, hessian = TRUE)
+                 intercept = intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, x7 = x7, income_exists = income_exists, hessian = TRUE)
 result$par
 
 # Use Probit package to check result
@@ -218,14 +218,50 @@ hist(dat_income_filtered$YINC_1700_2019, main = "Income")
 # $100,000. If income is equal to our mass point, the density will be 
 # [1 - phi((xi * beta) / sigma)].
 
-dat_ex3 <- dat %>% filter(dat$YINC_1700_2019 != 0 & dat$YINC_1700_2019 != 'NA')
+dat_ex3 <- dat %>% filter(dat$YINC_1700_2019 != 0 & dat$YINC_1700_2019 != 'NA') %>% 
+  mutate(intercept = 1)
 dat_ex3$censored <- 1
 dat_ex3$censored[which(dat_ex3$YINC_1700_2019 < 100000)] <- 0
+
+# Our Tobit function
+
+flikelihood2 <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7, censored, income) {
+  yhat <- par[1] * intercept + par[2] * x1 + par[3] * x2 + par[4] * x3 + par[5] * x4 +
+    par[6] * x5 + par[7] * x6 + par[8] * x7
+  sigma <- exp(par[9])
+  residual <- income - yhat
+  our_normcdf <- pnorm(yhat / sigma)
+  our_normpdf <- dnorm(residual / sigma)
+  log_for_censored <- log(1 - our_normcdf)
+  log_for_uncensored <- log(1 / sigma * our_normpdf)
+  like <- censored * log_for_censored + (1 - censored) * log_for_uncensored
+  return(-sum(like))
+}
+
+intercept <- dat_ex3$intercept
+x1 <- dat_ex3$age_final
+x2 <- dat_ex3$work_exp
+x3 <- dat_ex3$average_grade_parent
+x4 <- as.numeric(dat_ex3$highest_degree_received)
+x5 <- dat_ex3$KEY_SEX_1997
+x6 <- dat_ex3$CV_BIO_CHILD_HH_U18_2019
+x7 <- dat_ex3$CV_MARSTAT_COLLAPSED_2019
 censored <- dat_ex3$censored
+income <- dat_ex3$YINC_1700_2019
+
+start2 <- runif(7, -10, 10)
+result2 <- optim(start2, fn = flikelihood2, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 1000),
+                 intercept = intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, x7 = x7,
+                 censored = censored, income = income, hessian = TRUE)
+result2$par
 
 # Use Tobit package to check result
 
-reg4 <- vglm()
+reg4 <- vglm(YINC_1700_2019 ~ age_final + work_exp + average_grade_parent + 
+               highest_degree_received + KEY_SEX_1997 + CV_BIO_CHILD_HH_U18_2019 + 
+               CV_MARSTAT_COLLAPSED_2019, left = 0, right = 100000, data = dat_ex3)
+summary(reg4)
+reg4$coefficients
 
 # d) Interpret the results above and compare to those when not correcting for 
 # the censored data.
