@@ -346,6 +346,7 @@ within_dat <- merge(dat_longpanel, means, by = "id") %>% mutate(income_diff = wi
                                                                 marital_status_diff = within_dat$CV_MARSTAT_COLLAPSED - within_dat$mean_marital_status)
 within_regression <- lm(income_diff ~ work_exp_diff + education_diff + marital_status_diff,
                         data = within_dat)
+
 # ii) Between estimator.
 
 between_regression <- lm(mean_income ~ mean_work_exp + mean_education + mean_marital_status,
@@ -353,8 +354,12 @@ between_regression <- lm(mean_income ~ mean_work_exp + mean_education + mean_mar
 
 # iii) Difference (any) Estimator.
 
-
-
+difference_dat <- within_dat %>% group_by(id) %>% mutate(income_fd = YINC.1700 - lag(YINC.1700),
+                                                         work_exp_fd = work_exp - lag(work_exp),
+                                                         education_fd = years_education - lag(years_education),
+                                                         marital_status_fd = CV_MARSTAT_COLLAPSED - lag(CV_MARSTAT_COLLAPSED))
+fd_regression <- lm(income_fd ~ work_exp_fd + education_fd + marital_status_fd, data = difference_dat)
+                                                         
 # c) Interpret the results from each model and explain why different models yield 
 # different parameter estimates.
 
