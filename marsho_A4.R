@@ -9,12 +9,12 @@ library(ggplot2)
 library(VGAM)
 
 setwd("~/Desktop/econ613_wd/A4/Data")
-dat <- read.csv('dat_A4.csv')
-dat_panel <- read.csv('dat_A4_panel.csv')
 
 #=========================================================================
 # Exercise 1: Preparing the Data
 #=========================================================================
+
+dat <- read.csv('dat_A4.csv')
 
 # a) Create additional variable for the age of the agent "age", total work experience measured in years
 # "work_exp".
@@ -274,6 +274,25 @@ reg4$coefficients
 
 # In the second part, we use the panel dimension of NLSY97 data.
 
+dat_panel <- read.csv('dat_A4_panel.csv')
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_1998 = CV_HIGHEST_DEGREE_9899_1998,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_1999 = CV_HIGHEST_DEGREE_9900_1999,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2000 = CV_HIGHEST_DEGREE_0001_2000,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2001 = CV_HIGHEST_DEGREE_0102_2001,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2002 = CV_HIGHEST_DEGREE_0203_2002,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2003 = CV_HIGHEST_DEGREE_0304_2003,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2004 = CV_HIGHEST_DEGREE_0405_2004,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2005 = CV_HIGHEST_DEGREE_0506_2005,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2006 = CV_HIGHEST_DEGREE_0607_2006,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2007 = CV_HIGHEST_DEGREE_0708_2007,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2008 = CV_HIGHEST_DEGREE_0809_2008,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2009 = CV_HIGHEST_DEGREE_0910_2009,
+                                        CV_HIGHEST_DEGREE_EVER_EDT_2010 = CV_HIGHEST_DEGREE_1011_2010)
+dat_longpanel <- long_panel(dat_panel, prefix = '_', begin = 1997, end = 2019, label_location = "end") %>%
+                 subset(dat_a4_panel_long, wave != '2012' & wave != '2014' & wave != '2016' & wave != '2018')
+
+
+
 # We are interested in the effect of education, marital status, and experience
 # on wages.
 
@@ -284,22 +303,6 @@ reg4$coefficients
 
 # b) Exploit the panel dimension of the data to propose a model to correct for the
 # ability bias. Estimate the model using the following strategy.
-
-dat_a4_panel <- dat_a4_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_1998=CV_HIGHEST_DEGREE_9899_1998,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_1999=CV_HIGHEST_DEGREE_9900_1999,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2000=CV_HIGHEST_DEGREE_0001_2000,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2001=CV_HIGHEST_DEGREE_0102_2001,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2002=CV_HIGHEST_DEGREE_0203_2002,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2003=CV_HIGHEST_DEGREE_0304_2003,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2004=CV_HIGHEST_DEGREE_0405_2004,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2005=CV_HIGHEST_DEGREE_0506_2005,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2006=CV_HIGHEST_DEGREE_0607_2006,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2007=CV_HIGHEST_DEGREE_0708_2007,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2008=CV_HIGHEST_DEGREE_0809_2008,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2009=CV_HIGHEST_DEGREE_0910_2009,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2010=CV_HIGHEST_DEGREE_1011_2010)
-
-
 
 # i) Within estimator.
 
