@@ -7,6 +7,7 @@ library(tidyverse)
 library(readr)
 library(ggplot2)
 library(VGAM)
+library(panelr)
 
 setwd("~/Desktop/econ613_wd/A4/Data")
 
@@ -56,7 +57,7 @@ dat$CV_HGC_RES_DAD_1997[to_drop3] = NA
 dat$CV_HGC_RES_MOM_1997[to_drop4] = NA
 dat <- dat %>% mutate(average_grade_parent = rowSums(dat[, 8:11], na.rm = TRUE) / 4)
 
-# the final additional education variable created below, highest_degree_received, is pretty subjective. 
+# the final additional education variable created below, years_education, is pretty subjective. 
 # I am not counting preschool or kindergarten as part of years of schooling since we have no 
 # information on them. Additionally, I am assuming that the other degree programs are completed in 
 # the commonly known amount. For example, bachelor's is 4 years, master's is 2 years, and 
@@ -64,7 +65,7 @@ dat <- dat %>% mutate(average_grade_parent = rowSums(dat[, 8:11], na.rm = TRUE) 
 # program from which they received their highest degree (for example, if they completed PhD, I am 
 # assuming they went straight from a four-year bachelor's to PhD program, with no master's in-between).
 
-dat <- dat %>% mutate(highest_degree_received = case_when(dat$YSCH.3113_2019 == 1 ~ "12",
+dat <- dat %>% mutate(years_education = case_when(dat$YSCH.3113_2019 == 1 ~ "12",
                                                           dat$YSCH.3113_2019 == 2 ~ "12",
                                                           dat$YSCH.3113_2019 == 3 ~ "12",
                                                           dat$YSCH.3113_2019 == 4 ~ "14",
@@ -72,6 +73,7 @@ dat <- dat %>% mutate(highest_degree_received = case_when(dat$YSCH.3113_2019 == 
                                                           dat$YSCH.3113_2019 == 6 ~ "18",
                                                           dat$YSCH.3113_2019 == 7 ~ "21",
                                                           dat$YSCH.3113_2019 == 8 ~ "21"))
+as.numeric(dat$years_education)
 
 # c) Provide the following visualizations.
 
@@ -123,7 +125,7 @@ dat_numchildrenmarital_group <- dat %>% group_by(CV_BIO_CHILD_HH_U18_2019, CV_MA
 # a) Specify and estimate an OLS model to explain the income variable (where income is positive).
 
 reg1 <- lm(YINC_1700_2019 ~ age_final + work_exp + average_grade_parent + 
-             highest_degree_received + KEY_SEX_1997 + CV_BIO_CHILD_HH_U18_2019 + 
+             years_education + KEY_SEX_1997 + CV_BIO_CHILD_HH_U18_2019 + 
              CV_MARSTAT_COLLAPSED_2019, data = dat_income_filtered)
 summary(reg1)
 
@@ -169,7 +171,7 @@ intercept <- dat$intercept
 x1 <- dat$age_final
 x2 <- dat$work_exp
 x3 <- dat$average_grade_parent
-x4 <- as.numeric(dat$highest_degree_received)
+x4 <- dat$years_education
 x5 <- dat$KEY_SEX_1997
 x6 <- dat$CV_BIO_CHILD_HH_U18_2019
 x7 <- dat$CV_MARSTAT_COLLAPSED_2019
@@ -242,7 +244,7 @@ intercept <- dat_ex3$intercept
 x1 <- dat_ex3$age_final
 x2 <- dat_ex3$work_exp
 x3 <- dat_ex3$average_grade_parent
-x4 <- as.numeric(dat_ex3$highest_degree_received)
+x4 <- dat_ex3$years_education
 x5 <- dat_ex3$KEY_SEX_1997
 x6 <- dat_ex3$CV_BIO_CHILD_HH_U18_2019
 x7 <- dat_ex3$CV_MARSTAT_COLLAPSED_2019
@@ -258,7 +260,7 @@ result2$par
 # Use Tobit package to check result
 
 reg4 <- vglm(YINC_1700_2019 ~ age_final + work_exp + average_grade_parent + 
-               highest_degree_received + KEY_SEX_1997 + CV_BIO_CHILD_HH_U18_2019 + 
+               years_education + KEY_SEX_1997 + CV_BIO_CHILD_HH_U18_2019 + 
                CV_MARSTAT_COLLAPSED_2019, left = 0, right = 100000, data = dat_ex3)
 summary(reg4)
 reg4$coefficients
@@ -275,23 +277,55 @@ reg4$coefficients
 # In the second part, we use the panel dimension of NLSY97 data.
 
 dat_panel <- read.csv('dat_A4_panel.csv')
-dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_1998 = CV_HIGHEST_DEGREE_9899_1998,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_1999 = CV_HIGHEST_DEGREE_9900_1999,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2000 = CV_HIGHEST_DEGREE_0001_2000,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2001 = CV_HIGHEST_DEGREE_0102_2001,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2002 = CV_HIGHEST_DEGREE_0203_2002,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2003 = CV_HIGHEST_DEGREE_0304_2003,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2004 = CV_HIGHEST_DEGREE_0405_2004,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2005 = CV_HIGHEST_DEGREE_0506_2005,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2006 = CV_HIGHEST_DEGREE_0607_2006,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2007 = CV_HIGHEST_DEGREE_0708_2007,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2008 = CV_HIGHEST_DEGREE_0809_2008,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2009 = CV_HIGHEST_DEGREE_0910_2009,
-                                        CV_HIGHEST_DEGREE_EVER_EDT_2010 = CV_HIGHEST_DEGREE_1011_2010)
-dat_longpanel <- long_panel(dat_panel, prefix = '_', begin = 1997, end = 2019, label_location = "end") %>%
-                 subset(dat_a4_panel_long, wave != '2012' & wave != '2014' & wave != '2016' & wave != '2018')
 
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_1998 = CV_HIGHEST_DEGREE_9899_1998)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_1999 = CV_HIGHEST_DEGREE_9900_1999)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2000 = CV_HIGHEST_DEGREE_0001_2000)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2001 = CV_HIGHEST_DEGREE_0102_2001)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2002 = CV_HIGHEST_DEGREE_0203_2002)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2003 = CV_HIGHEST_DEGREE_0304_2003)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2004 = CV_HIGHEST_DEGREE_0405_2004)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2005 = CV_HIGHEST_DEGREE_0506_2005)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2006 = CV_HIGHEST_DEGREE_0607_2006)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2007 = CV_HIGHEST_DEGREE_0708_2007)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2008 = CV_HIGHEST_DEGREE_0809_2008)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2009 = CV_HIGHEST_DEGREE_0910_2009)
+dat_panel <- dat_panel %>% rename(CV_HIGHEST_DEGREE_EVER_EDT_2010 = CV_HIGHEST_DEGREE_1011_2010)
 
+dat_longpanel <- long_panel(dat_panel, prefix = '_', begin = 1997, end = 2019, label_location = "end")
+dat_longpanel <- subset(dat_longpanel, wave != '2012' & wave != '2014' & wave != '2016' & wave != '2018')
+
+dat_longpanel <- as.data.frame(dat_longpanel)
+dat_longpanel <- select(dat_longpanel, -c(19:21))
+
+num_obs2 <- nrow(dat_longpanel)
+dat_longpanel <- dat_longpanel %>% mutate(work_exp = 0)
+for (i in 1:num_obs2) {
+  all_work_exp <- sum(dat_longpanel$CV_WKSWK_JOB_DLI.01[i], dat_longpanel$CV_WKSWK_JOB_DLI.02[i], dat_longpanel$CV_WKSWK_JOB_DLI.03[i],
+                      dat_longpanel$CV_WKSWK_JOB_DLI.04[i], dat_longpanel$CV_WKSWK_JOB_DLI.05[i], dat_longpanel$CV_WKSWK_JOB_DLI.06[i],
+                      dat_longpanel$CV_WKSWK_JOB_DLI.07[i], dat_longpanel$CV_WKSWK_JOB_DLI.08[i], dat_longpanel$CV_WKSWK_JOB_DLI.09[i],
+                      dat_longpanel$CV_WKSWK_JOB_DLI.10[i], dat_longpanel$CV_WKSWK_JOB_DLI.11[i], dat_longpanel$CV_WKSWK_JOB_DLI.12[i],
+                      dat_longpanel$CV_WKSWK_JOB_DLI.13[i], dat_longpanel$CV_WKSWK_JOB_DLI.14[i], dat_longpanel$CV_WKSWK_JOB_DLI.15[i],
+                      na.rm = TRUE)
+  dat_longpanel$work_exp[i] <- all_work_exp / 52
+}
+
+dat_longpanel <- dat_longpanel %>% mutate(years_education = case_when(dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 0 ~ "12",
+                                                                              dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 1 ~ "12",
+                                                                              dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 2 ~ "12",
+                                                                              dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 3 ~ "14",
+                                                                              dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 4 ~ "16",
+                                                                              dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 5 ~ "18",
+                                                                              dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 6 ~ "21",
+                                                                              dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 7 ~ "21"))
+
+dat_longpanel <- as.data.frame(apply(dat_longpanel, 2, as.numeric))
+
+means <- dat_longpanel %>% group_by(id) %>% 
+  summarize(mean_income = mean(YINC.1700, na.rm = TRUE),
+            mean_work_exp = mean(work_exp, na.rm = TRUE),
+            mean_education = mean(years_education, na.rm = TRUE),
+            mean_marital_status = mean(CV_MARSTAT_COLLAPSED, na.rm = TRUE))
 
 # We are interested in the effect of education, marital status, and experience
 # on wages.
@@ -306,9 +340,20 @@ dat_longpanel <- long_panel(dat_panel, prefix = '_', begin = 1997, end = 2019, l
 
 # i) Within estimator.
 
+within_dat <- merge(dat_longpanel, means, by = "id") %>% mutate(income_diff = within_dat$YINC.1700 - within_dat$mean_income,
+                                                                work_exp_diff = within_dat$work_exp - within_dat$mean_work_exp,
+                                                                education_diff = within_dat$years_education - within_dat$mean_education,
+                                                                marital_status_diff = within_dat$CV_MARSTAT_COLLAPSED - within_dat$mean_marital_status)
+within_regression <- lm(income_diff ~ work_exp_diff + education_diff + marital_status_diff,
+                        data = within_dat)
 # ii) Between estimator.
 
+between_regression <- lm(mean_income ~ mean_work_exp + mean_education + mean_marital_status,
+                         data = means)
+
 # iii) Difference (any) Estimator.
+
+
 
 # c) Interpret the results from each model and explain why different models yield 
 # different parameter estimates.
