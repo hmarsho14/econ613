@@ -150,9 +150,9 @@ dat$income_exists[which(dat$YINC_1700_2019 > 0)] <- 1
 
 # Our Probit Function
 
-flikelihood <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7, income_exists) {
+flikelihood <- function(par, intercept, x1, x2, x3, x4, x5, x6, income_exists) {
   yhat <- par[1] * intercept + par[2] * x1 + par[3] * x2 + par[4] * x3 + par[5] * x4 +
-    par[6] * x5 + par[7] * x6 + par[8] * x7
+    par[6] * x5 + par[7] * x6
   prob <- pnorm(yhat)
   prob[prob > 0.999999] <- 0.999999
   prob[prob < 0.000001] <- 0.000001
@@ -160,9 +160,9 @@ flikelihood <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7, income_exist
   return(-sum(like))
 }
 
-predictor <- function(par, intercept, x1, x2, x3, x4, x5, x6, x7) {
+predictor <- function(par, intercept, x1, x2, x3, x4, x5, x6) {
   yhat <- par[1] * intercept + par[2] * x1 + par[3] * x2 + par[4] * x3 + par[5] * x4 +
-    par[6] * x5 + par[7] * x6 + par[8] * x7 
+    par[6] * x5 + par[7] * x6
   return(yhat)
 }
 
@@ -170,26 +170,25 @@ intercept <- dat$intercept
 x1 <- dat$age_final
 x2 <- dat$work_exp
 x3 <- dat$average_grade_parent
-x4 <- dat$years_education
-x5 <- dat$KEY_SEX_1997
-x6 <- dat$CV_BIO_CHILD_HH_U18_2019
-x7 <- dat$CV_MARSTAT_COLLAPSED_2019
+x4 <- dat$KEY_SEX_1997
+x5 <- dat$CV_BIO_CHILD_HH_U18_2019
+x6 <- dat$CV_MARSTAT_COLLAPSED_2019
 income_exists = dat$income_exists
 
-start <- runif(6, -1, 1)
+start <- runif(7, -1, 1)
 result <- optim(start, fn = flikelihood, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 1000),
-                 intercept = intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, x7 = x7, income_exists = income_exists, hessian = TRUE)
+                 intercept = intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, income_exists = income_exists, hessian = TRUE)
 result$par
 
 # Use Probit package to check result
 
-reg2 <- glm(income_exists ~ x1 + x2 + x3 + x3 + x4 + x5 + x6 + x7, family = binomial(link = "probit"), data = dat)
+reg2 <- glm(income_exists ~ x1 + x2 + x3 + x3 + x4 + x5 + x6, family = binomial(link = "probit"), data = dat)
 summary(reg2)
 reg2$coefficients
 
-predictor <- predictor(result$par, intercept, x1, x2, x3, x4, x5, x6, x7)
+predictor <- predictor(result$par, intercept, x1, x2, x3, x4, x5, x6)
 invM_ratio <- dnorm(predictor) / pnorm(predictor) # Inverse Mills Ratio
-reg3 <- lm(dat$YINC_1700_2019 ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + invM_ratio) # Heckman regression
+reg3 <- lm(dat$YINC_1700_2019 ~ x1 + x2 + x3 + x4 + x5 + x6 + invM_ratio) # Heckman regression
 summary(reg3)
 reg3$coefficients
 
@@ -321,6 +320,7 @@ dat_longpanel <- dat_longpanel %>% mutate(years_education = case_when(dat_longpa
                                                                               dat_longpanel$CV_HIGHEST_DEGREE_EVER_EDT == 7 ~ "21"))
 
 dat_longpanel <- as.data.frame(apply(dat_longpanel, 2, as.numeric))
+dat_longpanel <- dat_longpanel %>% filter(dat_longpanel$YINC.1700 != 0 & dat$YINC.1700 != 'NA')
 
 means <- dat_longpanel %>% group_by(id) %>% 
   summarize(mean_income = mean(YINC.1700, na.rm = TRUE),
