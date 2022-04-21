@@ -145,7 +145,7 @@ summary(reg1)
 # Interpret the results from the Heckman selection model and compare the results to OLS results. Why does there
 # exist a difference?
 
-dat <- dat %>% mutate(intercept = 1, income_exists = 0)
+dat <- dat %>% mutate(intercept = NULL, income_exists = 0)
 dat$income_exists[which(dat$YINC_1700_2019 > 0)] <- 1
 
 # Our Probit Function
@@ -173,18 +173,12 @@ x3 <- dat$average_grade_parent
 x4 <- dat$KEY_SEX_1997
 x5 <- dat$CV_BIO_CHILD_HH_U18_2019
 x6 <- dat$CV_MARSTAT_COLLAPSED_2019
-income_exists = dat$income_exists
+income_exists <- dat$income_exists
 
 start <- runif(7, -1, 1)
 result <- optim(start, fn = flikelihood, method = "BFGS", control = list(trace = 6, REPORT = 1, maxit = 1000),
                  intercept = intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, income_exists = income_exists, hessian = TRUE)
 result$par
-
-# Use Probit package to check result
-
-reg2 <- glm(income_exists ~ x1 + x2 + x3 + x3 + x4 + x5 + x6, family = binomial(link = "probit"), data = dat)
-summary(reg2)
-reg2$coefficients
 
 predictor <- predictor(result$par, intercept, x1, x2, x3, x4, x5, x6)
 invM_ratio <- dnorm(predictor) / pnorm(predictor) # Inverse Mills Ratio
@@ -221,9 +215,10 @@ hist(dat_income_filtered$YINC_1700_2019, main = "Income")
 # [1 - phi((xi * beta) / sigma)].
 
 dat_ex3 <- dat %>% filter(dat$YINC_1700_2019 != 0 & dat$YINC_1700_2019 != 'NA') %>% 
-  mutate(intercept = 1)
+  mutate(intercept = NULL)
 dat_ex3$censored <- 1
 dat_ex3$censored[which(dat_ex3$YINC_1700_2019 < 100000)] <- 0
+dat_ex3 <- as.data.frame(apply(dat_ex3, 2, as.numeric))
 
 # Our Tobit function
 
@@ -256,14 +251,6 @@ result2 <- optim(start2, fn = flikelihood2, method = "BFGS", control = list(trac
                  intercept = intercept, x1 = x1, x2 = x2, x3 = x3, x4 = x4, x5 = x5, x6 = x6, x7 = x7,
                  censored = censored, income = income, hessian = TRUE)
 result2$par
-
-# Use Tobit package to check result
-
-reg4 <- vglm(YINC_1700_2019 ~ age_final + work_exp + average_grade_parent + 
-               years_education + KEY_SEX_1997 + CV_BIO_CHILD_HH_U18_2019 + 
-               CV_MARSTAT_COLLAPSED_2019, left = 0, right = 100000, data = dat_ex3)
-summary(reg4)
-reg4$coefficients
 
 # d) Interpret the results above and compare to those when not correcting for 
 # the censored data.
@@ -341,17 +328,20 @@ means <- dat_longpanel %>% group_by(id) %>%
 
 # i) Within estimator.
 
-within_dat <- merge(dat_longpanel, means, by = "id") %>% mutate(income_diff = within_dat$YINC.1700 - within_dat$mean_income,
-                                                                work_exp_diff = within_dat$work_exp - within_dat$mean_work_exp,
-                                                                education_diff = within_dat$years_education - within_dat$mean_education,
-                                                                marital_status_diff = within_dat$CV_MARSTAT_COLLAPSED - within_dat$mean_marital_status)
+within_dat <- merge(dat_longpanel, means, by = "id")
+within_dat <- within_dat %>% mutate(income_diff = YINC.1700 - mean_income,
+                                    work_exp_diff = work_exp - mean_work_exp,
+                                    education_diff = years_education - mean_education,
+                                    marital_status_diff = CV_MARSTAT_COLLAPSED - mean_marital_status)
 within_regression <- lm(income_diff ~ work_exp_diff + education_diff + marital_status_diff,
                         data = within_dat)
+summary(within_regression)
 
 # ii) Between estimator.
 
 between_regression <- lm(mean_income ~ mean_work_exp + mean_education + mean_marital_status,
                          data = means)
+summary(between_regression)
 
 # iii) Difference (any) Estimator.
 
@@ -360,6 +350,7 @@ difference_dat <- within_dat %>% group_by(id) %>% mutate(income_fd = YINC.1700 -
                                                          education_fd = years_education - lag(years_education),
                                                          marital_status_fd = CV_MARSTAT_COLLAPSED - lag(CV_MARSTAT_COLLAPSED))
 fd_regression <- lm(income_fd ~ work_exp_fd + education_fd + marital_status_fd, data = difference_dat)
+summary(fd_regression)
                                                          
 # c) Interpret the results from each model and explain why different models yield 
 # different parameter estimates.
